@@ -48,10 +48,11 @@ UART_HandleTypeDef huart2;
 uint32_t QEIReadRaw;
 arm_pid_instance_f32 PID = {0} ;
 float position = 0;
-float setdegree = 30000;
+float setdegree = 1080;
 float setposition = 0;
 float duty = 0;
 float duty_m = 0;
+float Maxpos = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,9 +108,9 @@ HAL_TIM_Base_Start(&htim1);
 HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
 
-PID.Kp = 50;
+PID.Kp = 20;
 PID.Ki = 0;
-PID.Kd = 0;
+PID.Kd = 70;
 arm_pid_init_f32(&PID, 0);
   /* USER CODE END 2 */
 
@@ -121,20 +122,31 @@ arm_pid_init_f32(&PID, 0);
 
     /* USER CODE BEGIN 3 */
 	  QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim2);
-	  setposition = (setdegree/36000)*307200;
+	  setposition = floor((setdegree/36000)*307200);
 	  position = QEIReadRaw;
 	  static uint32_t timestamp = 0;
 	  if(timestamp < HAL_GetTick()){
 		  timestamp = HAL_GetTick() + 5 ;
 		  duty = arm_pid_f32(&PID, setposition-position);
+
 		  if(duty < 0){
 			  duty_m = -1 * duty;
+			  if(duty_m > 1000){
+				  duty_m = 1000;
+			  }
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,duty_m);
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,0);
 		  }
 		  else{
+			  if(duty > 1000){
+				  duty = 1000;
+			  }
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,0);
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,duty);
+		  }
+
+		  if(Maxpos < position){
+			  Maxpos = position;
 		  }
 	  }
   }
@@ -287,7 +299,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 307199;
+  htim2.Init.Period = 307300;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
